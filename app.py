@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from datetime import datetime
 import io
+import json
 
 st.set_page_config(page_title="PSICONR VISION ULTRA", page_icon="🧠", layout="wide")
 
@@ -41,7 +42,6 @@ if arquivo is not None:
                 cols = [f"q{j+1}" for j in range(i*5, (i+1)*5)]
                 df_dim = df[cols].copy()
 
-                # Inversão dos itens positivos
                 for col in df_dim.columns:
                     idx = int(col[1:])
                     if idx in [3,4,8,9,13,14,18,19,23,24,28,29,33,34,38,39]:
@@ -56,8 +56,29 @@ if arquivo is not None:
                 for dim, score in scores.items()
             ], columns=["Dimensão", "Score (0-100)", "Nível de Risco"])
 
-            # ==================== DASHBOARD ====================
-            tab1, tab2, tab3 = st.tabs(["📊 Dashboard", "📋 Matriz", "📋 Plano de Ação"])
+            # Plano de Ação Automático
+            acoes = []
+            for _, row in matriz.iterrows():
+                if row["Nível de Risco"] in ["Crítico", "Alto"]:
+                    acoes.append({
+                        "Risco": row["Dimensão"],
+                        "Ação Sugerida": f"Implementar plano imediato de redução de {row['Dimensão'].lower()}",
+                        "Responsável": "RH + Liderança",
+                        "Prazo": "30 dias",
+                        "Prioridade": "Alta"
+                    })
+                elif row["Nível de Risco"] == "Moderado":
+                    acoes.append({
+                        "Risco": row["Dimensão"],
+                        "Ação Sugerida": f"Monitorar e realizar ações preventivas em {row['Dimensão'].lower()}",
+                        "Responsável": "RH",
+                        "Prazo": "60 dias",
+                        "Prioridade": "Média"
+                    })
+            plano = pd.DataFrame(acoes)
+
+            # ==================== TABS ====================
+            tab1, tab2, tab3, tab4 = st.tabs(["📊 Dashboard", "🕸️ Radar Chart", "📋 Matriz", "📋 Plano de Ação"])
 
             with tab1:
                 col1, col2 = st.columns(2)
@@ -75,14 +96,27 @@ if arquivo is not None:
                     st.pyplot(fig2)
 
             with tab2:
+                st.subheader("🕸️ Radar Chart de Riscos Psicossociais")
+                fig3 = plt.figure(figsize=(10, 10))
+                values = list(scores.values()) + [list(scores.values())[0]]
+                angles = np.linspace(0, 2*np.pi, len(dimensoes), endpoint=False).tolist() + [0]
+                ax = plt.subplot(111, polar=True)
+                ax.plot(angles, values, 'o-', linewidth=2, color='#1f77b4')
+                ax.fill(angles, values, alpha=0.25, color='#1f77b4')
+                ax.set_thetagrids(np.degrees(angles[:-1]), dimensoes)
+                st.pyplot(fig3)
+
+            with tab3:
                 st.subheader("📋 Matriz de Risco")
                 st.dataframe(matriz, use_container_width=True)
 
-            with tab3:
+            with tab4:
                 st.subheader("📋 Plano de Ação Automático")
-                st.info("Plano de ação automático será gerado na próxima versão")
+                st.dataframe(plano, use_container_width=True)
+                csv = plano.to_csv(index=False).encode()
+                st.download_button("Baixar Plano de Ação (CSV)", csv, "plano_acao.csv", "text/csv")
 
-            st.success("✅ Diagnóstico gerado com sucesso!")
+            st.success("✅ Diagnóstico completo gerado com sucesso!")
             st.balloons()
 
 st.caption("PSICONR VISION © 2026 - Emanuelle Melo")
