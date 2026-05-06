@@ -6,9 +6,6 @@ import seaborn as sns
 from datetime import datetime
 import sqlite3
 import bcrypt
-import io
-from reportlab.lib.pagesizes import A4
-from reportlab.pdfgen import canvas
 
 st.set_page_config(page_title="PSICONR VISION ULTRA", page_icon="🧠", layout="wide")
 
@@ -34,7 +31,22 @@ def init_db():
 
 init_db()
 
+# Login simples para teste
+if "logged_in" not in st.session_state:
+    st.subheader("🔑 Login")
+    email = st.text_input("E-mail")
+    senha = st.text_input("Senha", type="password")
+    if st.button("Entrar"):
+        if email and senha:
+            st.session_state.logged_in = True
+            st.session_state.nome_empresa = "Empresa Teste"
+            st.rerun()
+        else:
+            st.error("Preencha e-mail e senha")
+    st.stop()
+
 st.success("✅ Sistema carregado com sucesso!")
-st.info("Próximo passo: upload do questionário (q1 a q40)")
+
+st.info("**Próximo passo:** Faça upload do arquivo de respostas do questionário (Excel ou CSV com colunas: colaborador, setor, q1 até q40)")
 
 st.caption("PSICONR VISION © 2026 - Emanuelle Melo")
