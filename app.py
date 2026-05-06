@@ -4,49 +4,80 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from datetime import datetime
-import sqlite3
-import bcrypt
+import io
 
 st.set_page_config(page_title="PSICONR VISION ULTRA", page_icon="🧠", layout="wide")
 
 st.title("🧠 PSICONR VISION ULTRA")
-st.caption("Gestão de Riscos Psicossociais - NR-01")
-
-# Banco de dados simples
-def init_db():
-    conn = sqlite3.connect("psiconr_vision.db")
-    c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS users (
-                    id INTEGER PRIMARY KEY, 
-                    email TEXT UNIQUE, 
-                    password TEXT,
-                    nome_empresa TEXT)''')
-    c.execute('''CREATE TABLE IF NOT EXISTS diagnosticos (
-                    id INTEGER PRIMARY KEY, 
-                    user_id INTEGER, 
-                    data TEXT,
-                    scores TEXT)''')
-    conn.commit()
-    conn.close()
-
-init_db()
-
-# Login simples para teste
-if "logged_in" not in st.session_state:
-    st.subheader("🔑 Login")
-    email = st.text_input("E-mail")
-    senha = st.text_input("Senha", type="password")
-    if st.button("Entrar"):
-        if email and senha:
-            st.session_state.logged_in = True
-            st.session_state.nome_empresa = "Empresa Teste"
-            st.rerun()
-        else:
-            st.error("Preencha e-mail e senha")
-    st.stop()
+st.caption("Gestão de Riscos Psicossociais conforme NR-01")
 
 st.success("✅ Sistema carregado com sucesso!")
 
-st.info("**Próximo passo:** Faça upload do arquivo de respostas do questionário (Excel ou CSV com colunas: colaborador, setor, q1 até q40)")
+# ==================== UPLOAD DO QUESTIONÁRIO ====================
+st.subheader("📤 Upload das Respostas do Questionário")
+st.info("Arquivo Excel ou CSV com as colunas: colaborador, setor, q1 até q40")
 
-st.caption("PSICONR VISION © 2026 - Emanuelle Melo")
+arquivo = st.file_uploader("Escolha o arquivo", type=["xlsx", "csv"])
+
+if arquivo is not None:
+    if arquivo.name.endswith(".csv"):
+        df = pd.read_csv(arquivo)
+    else:
+        df = pd.read_excel(arquivo)
+
+    st.success(f"✅ {len(df)} respostas carregadas!")
+
+    if st.button("🚀 Gerar Diagnóstico Completo", type="primary", use_container_width=True):
+        with st.spinner("Processando diagnóstico..."):
+            dimensoes = [
+                "Demandas Quantitativas", "Ritmo de Trabalho", "Autonomia",
+                "Apoio Social", "Qualidade da Liderança", "Justiça Organizacional",
+                "Comportamentos Ofensivos", "Conflito Trabalho-Vida"
+            ]
+
+            scores = {}
+            for i, dim in enumerate(dimensoes):
+                cols = [f"q{j+1}" for j in range(i*5, (i+1)*5)]
+                df_dim = df[cols].copy()
+
+                # Inversão dos itens positivos
+                for col in df_dim.columns:
+                    idx = int(col[1:])
+                    if idx in [3,4,8,9,13,14,18,19,23,24,28,29,33,34,38,39]:
+                        df_dim[col] = 6 - df_dim[col]
+
+                score = df_dim.mean(axis=1).mean() * 20
+                scores[dim] = round(score, 2)
+
+            # Matriz de Risco
+            matriz = pd.DataFrame([
+                [dim, score, "Crítico" if score < 40 else "Alto" if score < 55 else "Moderado" if score < 70 else "Baixo"]
+                for dim, score in scores.items()
+            ], columns=["Dimensão", "Score (0-100)", "Nível de Risco"])
+
+            st.subheader("📊 Dashboard de Resultados")
+
+            # Gráficos
+            col1, col2 = st.columns(2)
+            with col1:
+                fig, ax = plt.subplots(figsize=(10, 6))
+                sns.barplot(x=list(scores.values()), y=list(scores.keys()), palette="Blues_d", ax=ax)
+                ax.set_title("Scores por Dimensão")
+                st.pyplot(fig)
+
+            with col2:
+                fig2, ax2 = plt.subplots(figsize=(10, 6))
+                colors = {"Crítico": "#d32f2f", "Alto": "#f57c00", "Moderado": "#fbc02d", "Baixo": "#388e3c"}
+                sns.barplot(data=matriz, x="Score (0-100)", y="Dimensão", 
+                           palette=[colors[n] for n in matriz["Nível de Risco"]], ax=ax2)
+                ax2.set_title("Nível de Risco por Dimensão")
+                st.pyplot(fig2)
+
+            st.subheader("📋 Matriz de Risco")
+            st.dataframe(matriz, use_container_width=True)
+
+            # Download
+            csv = matriz.to_csv(index=False).encode()
+            st.download_button("Baixar Matriz de Risco (CSV)", csv, "matriz_risco.csv", "text/csv")
+
+            st.success("✅ Diagnóstico gerado com sucesso!")
