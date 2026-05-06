@@ -44,4 +44,44 @@ if arquivo is not None:
                 # Inversão dos itens positivos
                 for col in df_dim.columns:
                     idx = int(col[1:])
-                    if idx in [3,4,8,9,13,14,18,19,23,24,28,29
+                    if idx in [3,4,8,9,13,14,18,19,23,24,28,29,33,34,38,39]:
+                        df_dim[col] = 6 - df_dim[col]
+
+                score = df_dim.mean(axis=1).mean() * 20
+                scores[dim] = round(score, 2)
+
+            # Matriz de Risco
+            matriz = pd.DataFrame([
+                [dim, score, "Crítico" if score < 40 else "Alto" if score < 55 else "Moderado" if score < 70 else "Baixo"]
+                for dim, score in scores.items()
+            ], columns=["Dimensão", "Score (0-100)", "Nível de Risco"])
+
+            # ==================== DASHBOARD ====================
+            st.subheader("📊 Dashboard de Resultados")
+
+            col1, col2 = st.columns(2)
+            with col1:
+                fig, ax = plt.subplots(figsize=(10, 6))
+                sns.barplot(x=list(scores.values()), y=list(scores.keys()), palette="Blues_d", ax=ax)
+                ax.set_title("Scores por Dimensão")
+                st.pyplot(fig)
+
+            with col2:
+                fig2, ax2 = plt.subplots(figsize=(10, 6))
+                colors = {"Crítico": "#d32f2f", "Alto": "#f57c00", "Moderado": "#fbc02d", "Baixo": "#388e3c"}
+                sns.barplot(data=matriz, x="Score (0-100)", y="Dimensão",
+                            palette=[colors[n] for n in matriz["Nível de Risco"]], ax=ax2)
+                ax2.set_title("Nível de Risco por Dimensão")
+                st.pyplot(fig2)
+
+            st.subheader("📋 Matriz de Risco")
+            st.dataframe(matriz, use_container_width=True)
+
+            # Download
+            csv = matriz.to_csv(index=False).encode()
+            st.download_button("Baixar Matriz de Risco (CSV)", csv, "matriz_risco.csv", "text/csv")
+
+            st.success("✅ Diagnóstico gerado com sucesso!")
+            st.balloons()
+
+st.caption("PSICONR VISION © 2026 - Emanuelle Melo")
